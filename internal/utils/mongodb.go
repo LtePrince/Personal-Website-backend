@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -66,7 +67,7 @@ func resetIdleTimer() {
 }
 
 // GetBlogTitlesAndSummaries 从 MongoDB 获取所有 Blog 的标题和概述
-func GetBlogTitlesAndSummaries() ([]api.BlogResponse, error) {
+func GetBlogInfo() ([]api.BlogResponse, error) {
 	if client == nil {
 		if err := ConnectMongoDB(); err != nil {
 			return nil, err
@@ -81,10 +82,12 @@ func GetBlogTitlesAndSummaries() ([]api.BlogResponse, error) {
 	// 定义查询条件（如果没有条件，可以使用 bson.D{}）
 	filter := bson.D{}
 
-	// 定义只返回 `title` 和 `summary` 的字段
+	// 定义返回 `title` 和 `summary` 等字段
 	projection := bson.D{
-		{"Title", 1},
-		{"Summary", 1},
+		{Key: "ID", Value: 1},
+		{Key: "Title", Value: 1},
+		{Key: "Summary", Value: 1},
+		{Key: "Date", Value: 1},
 	}
 
 	cursor, err := collection.Find(ctx, filter, options.Find().SetProjection(projection))
@@ -107,4 +110,52 @@ func GetBlogTitlesAndSummaries() ([]api.BlogResponse, error) {
 	}
 
 	return blogs, nil
+}
+
+// GetBlogContentByID 根据 ID 获取博客内容
+func GetBlogContentByID(id int) (api.BlogContent, error) {
+	if client == nil {
+		if err := ConnectMongoDB(); err != nil {
+			return api.BlogContent{}, err
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	collection := client.Database(databaseName).Collection(collectionName)
+
+	// 查询条件
+	filter := bson.D{{Key: "ID", Value: id}}
+	projection := bson.D{
+		{Key: "ID", Value: 1},
+		{Key: "Path", Value: 1},
+	}
+
+	var result struct {
+		ID   int    `bson:"ID"`
+		Path string `bson:"Path"`
+	}
+
+	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(projection)).Decode(&result)
+	if err != nil {
+		return api.BlogContent{
+			ID:   404,
+			Text: "博客不存在",
+		}, nil
+	}
+
+	// 读取 markdown 文件内容
+	content, err := os.ReadFile(result.Path)
+	if err != nil {
+		return api.BlogContent{
+			ID:   404,
+			Text: "博客不存在",
+		}, nil
+	}
+
+	return api.BlogContent{
+		ID:   result.ID,
+		Text: string(content),
+	}, nil
 }
