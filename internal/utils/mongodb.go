@@ -21,7 +21,7 @@ var (
 )
 
 const (
-	mongoURI = "mongodb://root:@zy031003@localhost:27017" // 替换为你的 MongoDB URI
+	mongoURI = "mongodb://root:%40zy031003@localhost:27017" // 替换为你的 MongoDB URI
 	// mongoURI       = "mongodb://localhost:27017" // 替换为你的 MongoDB URI
 	databaseName   = "WebsiteBlog" // 替换为你的数据库名
 	collectionName = "blogs"       // 替换为你的集合名
