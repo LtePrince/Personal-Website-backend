@@ -25,7 +25,7 @@ func test1() {
 }
 
 func test2() {
-	url := "http://localhost:8080/pages/BlogDetail?id=1"
+	url := "http://101.132.86.173:8080/pages/BlogDetail?id=1"
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("Error making GET request: %s\n", err)
@@ -43,7 +43,7 @@ func test2() {
 }
 
 func test3() (body []byte) {
-	url := "http://localhost:8080/static/Image_1730389545752.jpg"
+	url := "http://101.132.86.173:8080/static/Image_1730389545752.jpg"
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("Error making GET request: %s\n", err)
@@ -56,7 +56,7 @@ func test3() (body []byte) {
 		fmt.Printf("Error reading response body: %s\n", err)
 		return nil
 	}
-	fmt.Printf("Response Success.\n")
+	fmt.Printf("Response Success. %s\n", body)
 	return body
 }
 
