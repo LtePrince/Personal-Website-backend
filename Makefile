@@ -18,4 +18,8 @@ test:
 build:
 	@go build -o $(BUILD_DIR)/myserver $(MAIN_FILE)
 
-.PHONY: run test
+# 清理构建文件
+clean:
+	@rm -rf $(BUILD_DIR)/myserver
+
+.PHONY: run test build clean
