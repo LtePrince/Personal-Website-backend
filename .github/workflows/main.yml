@@ -43,7 +43,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22 # 默认是22，如果您的SSH端口不是22，请修改
           source: "my-blog-server" # 要传输的本地文件（上一步构建结果）
-          target: "/www/wwwroot/Personal-Website-backend/build" # 服务器上的目标目录
+          target: "/www/wwwroot/Personal-Website-backend/" # 服务器上的目标目录
 
       # 步骤 6: 在服务器上重启应用
       - name: Restart Application on Server
