@@ -32,6 +32,7 @@ jobs:
       # GOOS=linux GOARCH=amd64 确保在任何系统上都能编译出 Linux 64位的二进制文件
       # -o my-app-binary 指定输出的二进制文件名
       - name: Build
+        working-directory: ./Personal-Website-backend 
         run: GOOS=linux GOARCH=amd64 go build -o my-blog-server .
 
       # 步骤 5: 部署到服务器
@@ -59,7 +60,7 @@ jobs:
             sudo systemctl restart my-go-app.service
             # 检查服务状态以确认重启成功
             sudo systemctl status my-go-app.service
-            
+
 # name: CI/CD Pipeline
 
 # on:
