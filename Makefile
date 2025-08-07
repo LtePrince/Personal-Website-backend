@@ -16,7 +16,7 @@ test:
 	@go run $(CLIENT_MONITOR_FILE)
 
 build:
-	@go build -o $(BUILD_DIR)/myserver $(MAIN_FILE)
+	@go build -o $(BUILD_DIR)/my-blog-server $(MAIN_FILE)
 
 # 清理构建文件
 clean:
