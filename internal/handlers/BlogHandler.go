@@ -15,6 +15,9 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/pages/Blog":
 		log.Printf("\033[32m[Log]\033[0mBlogHandler")
 		blogHandler(w, r)
+	case r.URL.Path == "/pages/LatestBlog":
+		log.Printf("\033[32m[Log]\033[0mLatestBlogHandler")
+		LatestBlogHandler(w, r)
 	case len(r.URL.Path) >= len("/pages/BlogDetail") && r.URL.Path[:len("/pages/BlogDetail")] == "/pages/BlogDetail":
 		log.Printf("\033[32m[Log]\033[0mBlogContentHandler")
 		BlogContentHandler(w, r)
@@ -57,6 +60,41 @@ func blogHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(blogs)
+}
+
+func LatestBlogHandler(w http.ResponseWriter, r *http.Request) {
+	// 获取请求方法
+	method := r.Method
+
+	// 获取请求的 URL 路径
+	path := r.URL.Path
+
+	// 获取请求头部信息
+	userAgent := r.Header.Get("User-Agent")
+
+	// 获取请求体内容（假设请求体是文本）
+	body := make([]byte, r.ContentLength)
+	r.Body.Read(body)
+
+	// 输出请求信息
+	log.Printf("\033[32m[Log]\033[0m------Method: %s\n", method)
+	log.Printf("\033[32m[Log]\033[0m------Path: %s\n", path)
+	log.Printf("\033[32m[Log]\033[0m------User-Agent: %s\n", userAgent)
+	log.Printf("\033[32m[Log]\033[0m------Body: %s\n", string(body))
+
+	// 获取最新博客内容
+	latestBlog, err := utils.GetLatestBlog()
+	if err != nil {
+		http.Error(w, "Error fetching latest blog", http.StatusInternalServerError)
+		log.Printf("Error fetching latest blog: %v", err)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(latestBlog)
 }
 
 func BlogContentHandler(w http.ResponseWriter, r *http.Request) {

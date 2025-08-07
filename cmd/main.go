@@ -9,7 +9,8 @@ import (
 
 func main() {
 	// 静态资源服务，访问 /static/xxx.jpg 实际读取 static 目录下的文件
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("/www/wwwroot/Web/blogs/static"))))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("/home/adolph/workspace/Personal-website/blogs/static"))))
+	// http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("/www/wwwroot/Web/blogs/static"))))
 
 	http.HandleFunc("/", handlers.Handler)
 	fmt.Println("Server is listening on port 8080...")

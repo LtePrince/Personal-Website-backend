@@ -25,7 +25,8 @@ func test1() {
 }
 
 func test2() {
-	url := "http://101.132.86.173:8080/pages/BlogDetail?id=1"
+	url := "http://localhost:8080/pages/BlogDetail?id=1"
+	// url := "http://101.132.86.173:8080/pages/BlogDetail?id=1"
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("Error making GET request: %s\n", err)
@@ -43,7 +44,8 @@ func test2() {
 }
 
 func test3() (body []byte) {
-	url := "http://101.132.86.173:8080/static/Image_1730389545752.jpg"
+	url := "http://localhost:8080/static/Image_1730389545752.jpg"
+	// url := "http://101.132.86.173:8080/static/Image_1730389545752.jpg"
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("Error making GET request: %s\n", err)
@@ -56,8 +58,26 @@ func test3() (body []byte) {
 		fmt.Printf("Error reading response body: %s\n", err)
 		return nil
 	}
-	fmt.Printf("Response Success. %s\n", body)
+	fmt.Printf("Response Success. %s\n", body[:10])
 	return body
+}
+
+func test4() {
+	url := "http://localhost:8080/pages/LatestBlog"
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Printf("Error making GET request: %s\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %s\n", err)
+		return
+	}
+
+	fmt.Printf("Response from /pages/LatestBlog: %s\n", body)
 }
 
 func main() {
@@ -68,5 +88,7 @@ func main() {
 	test2()
 	fmt.Println("Test3")
 	test3()
+	fmt.Println("Test4")
+	test4()
 	fmt.Println("Tests completed.")
 }

@@ -21,10 +21,10 @@ var (
 )
 
 const (
-	mongoURI = "mongodb://root:%40zy031003@localhost:27017" // 替换为你的 MongoDB URI
-	// mongoURI       = "mongodb://localhost:27017" // 替换为你的 MongoDB URI
-	databaseName   = "WebsiteBlog" // 替换为你的数据库名
-	collectionName = "blogs"       // 替换为你的集合名
+	// mongoURI = "mongodb://root:%40zy031003@localhost:27017" // 替换为你的 MongoDB URI
+	mongoURI       = "mongodb://localhost:27017" // 替换为你的 MongoDB URI
+	databaseName   = "WebsiteBlog"               // 替换为你的数据库名
+	collectionName = "blogs"                     // 替换为你的集合名
 	idleTimeout    = 1 * time.Hour
 )
 
@@ -111,6 +111,30 @@ func GetBlogInfo() ([]api.BlogResponse, error) {
 	}
 
 	return blogs, nil
+}
+
+func GetLatestBlog() (api.BlogResponse, error) {
+	if client == nil {
+		if err := ConnectMongoDB(); err != nil {
+			return api.BlogResponse{}, err
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	collection := client.Database(databaseName).Collection(collectionName)
+
+	// 查询条件，按日期降序排列，限制返回1条记录
+	options := options.FindOne().SetSort(bson.D{{Key: "Date", Value: -1}})
+
+	var latestBlog api.BlogResponse
+	err := collection.FindOne(ctx, bson.D{}, options).Decode(&latestBlog)
+	if err != nil {
+		return api.BlogResponse{}, fmt.Errorf("failed to find latest blog: %v", err)
+	}
+
+	return latestBlog, nil
 }
 
 // GetBlogContentByID 根据 ID 获取博客内容
