@@ -1,3 +1,65 @@
+# .github/workflows/deploy.yml
+
+name: Deploy Go Application
+
+# 触发条件：当有代码 push 到 main 分支时
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    # 运行环境：使用最新的 Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      # 步骤 1: 检出代码
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 步骤 2: 设置 Go 环境
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.5' # 使用您的 Go 版本
+
+      # 步骤 3: 安装依赖
+      - name: Install Dependencies
+        run: go mod tidy
+
+      # 步骤 4: 构建应用
+      # GOOS=linux GOARCH=amd64 确保在任何系统上都能编译出 Linux 64位的二进制文件
+      # -o my-app-binary 指定输出的二进制文件名
+      - name: Build
+        run: GOOS=linux GOARCH=amd64 go build -o my-blog-server .
+
+      # 步骤 5: 部署到服务器
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22 # 默认是22，如果您的SSH端口不是22，请修改
+          source: "my-blog-server" # 要传输的本地文件（上一步构建结果）
+          target: "/www/wwwroot/Personal-Website-backend/build" # 服务器上的目标目录
+
+      # 步骤 6: 在服务器上重启应用
+      - name: Restart Application on Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            # 使用 sudo 来执行 systemctl 命令
+            # 注意：这可能需要为部署用户配置免密 sudo 权限
+            sudo systemctl restart my-go-app.service
+            # 检查服务状态以确认重启成功
+            sudo systemctl status my-go-app.service
+            
 # name: CI/CD Pipeline
 
 # on:
