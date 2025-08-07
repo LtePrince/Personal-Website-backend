@@ -1,0 +1,268 @@
+# name: CI/CD Pipeline
+
+# on:
+#   push:
+#     branches: [ main, master ]
+#   pull_request:
+#     branches: [ main, master ]
+#   release:
+#     types: [ published ]
+
+# env:
+#   GO_VERSION: '1.23.5'
+#   APP_NAME: 'personal-website-backend'
+#   APP_DIR: '/home/${{ secrets.DEPLOY_USER }}/apps/personal-website-backend'
+
+# jobs:
+#   test:
+#     name: Test
+#     runs-on: ubuntu-latest
+    
+#     services:
+#       mongodb:
+#         image: mongo:7.0
+#         env:
+#           MONGO_INITDB_ROOT_USERNAME: testuser
+#           MONGO_INITDB_ROOT_PASSWORD: testpass
+#         ports:
+#           - 27017:27017
+#         options: >-
+#           --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok' --quiet"
+#           --health-interval 10s
+#           --health-timeout 5s
+#           --health-retries 5
+
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v4
+
+#     - name: Set up Go
+#       uses: actions/setup-go@v5
+#       with:
+#         go-version: ${{ env.GO_VERSION }}
+
+#     - name: Cache Go modules
+#       uses: actions/cache@v4
+#       with:
+#         path: |
+#           ~/.cache/go-build
+#           ~/go/pkg/mod
+#         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+#         restore-keys: |
+#           ${{ runner.os }}-go-
+
+#     - name: Download dependencies
+#       run: go mod download
+
+#     - name: Run tests
+#       run: go test -v ./...
+#       env:
+#         MONGO_URI: mongodb://testuser:testpass@localhost:27017/testdb?authSource=admin
+
+#     - name: Run go vet
+#       run: go vet ./...
+
+#     - name: Run go fmt check
+#       run: |
+#         if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+#           echo "Go code is not formatted:"
+#           gofmt -s -l .
+#           exit 1
+#         fi
+
+#   build:
+#     name: Build
+#     runs-on: ubuntu-latest
+#     needs: test
+    
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v4
+
+#     - name: Set up Go
+#       uses: actions/setup-go@v5
+#       with:
+#         go-version: ${{ env.GO_VERSION }}
+
+#     - name: Cache Go modules
+#       uses: actions/cache@v4
+#       with:
+#         path: |
+#           ~/.cache/go-build
+#           ~/go/pkg/mod
+#         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+#         restore-keys: |
+#           ${{ runner.os }}-go-
+
+#     - name: Download dependencies
+#       run: go mod download
+
+#     - name: Build binary for production
+#       run: |
+#         CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ${{ env.APP_NAME }} cmd/main.go
+#         tar -czf ${{ env.APP_NAME }}.tar.gz ${{ env.APP_NAME }}
+
+#     - name: Upload build artifacts
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: binary
+#         path: ${{ env.APP_NAME }}.tar.gz
+#         retention-days: 7
+
+#   security:
+#     name: Security Scan
+#     runs-on: ubuntu-latest
+#     needs: test
+    
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v4
+
+#     - name: Run Gosec Security Scanner
+#       uses: securecodewarrior/github-action-gosec@master
+#       with:
+#         args: './...'
+
+#   deploy:
+#     name: Deploy to Production
+#     runs-on: ubuntu-latest
+#     needs: [build, security]
+#     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v4
+
+#     - name: Download build artifacts
+#       uses: actions/download-artifact@v4
+#       with:
+#         name: binary
+
+#     - name: Upload binary to server
+#       uses: appleboy/scp-action@v0.1.7
+#       with:
+#         host: ${{ secrets.DEPLOY_HOST }}
+#         username: ${{ secrets.DEPLOY_USER }}
+#         key: ${{ secrets.DEPLOY_KEY }}
+#         port: ${{ secrets.DEPLOY_PORT || 22 }}
+#         source: "${{ env.APP_NAME }}.tar.gz"
+#         target: "${{ env.APP_DIR }}/"
+
+#     - name: Deploy to server via SSH
+#       uses: appleboy/ssh-action@v1
+#       with:
+#         host: ${{ secrets.DEPLOY_HOST }}
+#         username: ${{ secrets.DEPLOY_USER }}
+#         key: ${{ secrets.DEPLOY_KEY }}
+#         port: ${{ secrets.DEPLOY_PORT || 22 }}
+#         script: |
+#           set -e
+          
+#           echo "🚀 Starting deployment..."
+          
+#           # 创建应用目录
+#           mkdir -p ${{ env.APP_DIR }}
+#           mkdir -p ${{ env.APP_DIR }}/backup
+          
+#           # 停止现有服务
+#           echo "📋 Stopping existing service..."
+#           sudo systemctl stop ${{ env.APP_NAME }} || true
+          
+#           # 备份当前版本
+#           if [ -f "${{ env.APP_DIR }}/${{ env.APP_NAME }}" ]; then
+#             echo "💾 Backing up current version..."
+#             cp ${{ env.APP_DIR }}/${{ env.APP_NAME }} ${{ env.APP_DIR }}/backup/${{ env.APP_NAME }}-$(date +%Y%m%d_%H%M%S)
+#           fi
+          
+#           # 解压新构建的二进制文件
+#           cd ${{ env.APP_DIR }}
+#           tar -xzf ${{ env.APP_NAME }}.tar.gz
+#           chmod +x ${{ env.APP_NAME }}
+          
+#           # 创建 systemd 服务文件（如果不存在）
+#           if [ ! -f "/etc/systemd/system/${{ env.APP_NAME }}.service" ]; then
+#             echo "🔧 Creating systemd service..."
+#             sudo tee /etc/systemd/system/${{ env.APP_NAME }}.service <<EOF
+# [Unit]
+# Description=Personal Website Backend
+# After=network.target
+
+# [Service]
+# Type=simple
+# User=${{ secrets.DEPLOY_USER }}
+# Group=${{ secrets.DEPLOY_USER }}
+# WorkingDirectory=${{ env.APP_DIR }}
+# ExecStart=${{ env.APP_DIR }}/${{ env.APP_NAME }}
+# Restart=always
+# RestartSec=10
+# Environment=MONGO_URI=${{ secrets.MONGO_URI }}
+# Environment=PORT=8080
+# Environment=STATIC_PATH=/home/adolph/workspace/Personal-website/blogs/static
+
+# [Install]
+# WantedBy=multi-user.target
+# EOF
+#             sudo systemctl daemon-reload
+#             sudo systemctl enable ${{ env.APP_NAME }}
+#           fi
+          
+#           # 启动服务
+#           echo "▶️ Starting service..."
+#           sudo systemctl start ${{ env.APP_NAME }}
+          
+#           # 等待服务启动
+#           sleep 5
+          
+#           # 健康检查
+#           echo "🔍 Health check..."
+#           if systemctl is-active --quiet ${{ env.APP_NAME }}; then
+#             echo "✅ Service is running"
+#           else
+#             echo "❌ Service failed to start"
+#             sudo systemctl status ${{ env.APP_NAME }}
+#             exit 1
+#           fi
+          
+#           # 清理旧备份（保留最近5个）
+#           ls -t ${{ env.APP_DIR }}/backup/${{ env.APP_NAME }}-* 2>/dev/null | tail -n +6 | xargs rm -f
+          
+#           echo "🎉 Deployment completed successfully!"
+
+#   release:
+#     name: Create Release
+#     runs-on: ubuntu-latest
+#     needs: [build, security]
+#     if: github.event_name == 'release'
+    
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v4
+
+#     - name: Set up Go
+#       uses: actions/setup-go@v5
+#       with:
+#         go-version: ${{ env.GO_VERSION }}
+
+#     - name: Build release binaries
+#       run: |
+#         mkdir -p release
+#         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o release/${{ env.APP_NAME }}-linux-amd64 cmd/main.go
+#         CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-w -s" -o release/${{ env.APP_NAME }}-linux-arm64 cmd/main.go
+#         CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s" -o release/${{ env.APP_NAME }}-darwin-amd64 cmd/main.go
+#         CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s" -o release/${{ env.APP_NAME }}-darwin-arm64 cmd/main.go
+#         CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o release/${{ env.APP_NAME }}-windows-amd64.exe cmd/main.go
+        
+#         # 压缩二进制文件
+#         cd release
+#         for file in *; do
+#           if [ -f "$file" ] && [[ "$file" != *.tar.gz ]]; then
+#             tar -czf "$file.tar.gz" "$file"
+#             rm "$file"
+#           fi
+#         done
+
+#     - name: Upload release assets
+#       uses: softprops/action-gh-release@v2
+#       with:
+#         files: release/*
+#         token: ${{ secrets.GITHUB_TOKEN }}
