@@ -7,6 +7,7 @@ import (
 )
 
 func test1() {
+	// url := "http://localhost:8080/pages/Blog"
 	url := "http://154.37.213.201:8080/pages/Blog"
 	resp, err := http.Get(url)
 	if err != nil {
@@ -25,8 +26,8 @@ func test1() {
 }
 
 func test2() {
+	// url := "http://localhost:8080/pages/BlogDetail?id=1"
 	url := "http://154.37.213.201:8080/pages/BlogDetail?id=1"
-	// url := "http://101.132.86.173:8080/pages/BlogDetail?id=1"
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("Error making GET request: %s\n", err)
@@ -44,8 +45,8 @@ func test2() {
 }
 
 func test3() (body []byte) {
+	// url := "http://localhost:8080/static/Image_1730389545752.jpg"
 	url := "http://154.37.213.201:8080/static/Image_1730389545752.jpg"
-	// url := "http://101.132.86.173:8080/static/Image_1730389545752.jpg"
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("Error making GET request: %s\n", err)
@@ -63,6 +64,7 @@ func test3() (body []byte) {
 }
 
 func test4() {
+	// url := "http://localhost:8080/pages/LatestBlog"
 	url := "http://154.37.213.201:8080/pages/LatestBlog"
 	resp, err := http.Get(url)
 	if err != nil {
