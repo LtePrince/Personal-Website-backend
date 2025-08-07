@@ -32,8 +32,7 @@ jobs:
       # GOOS=linux GOARCH=amd64 确保在任何系统上都能编译出 Linux 64位的二进制文件
       # -o my-app-binary 指定输出的二进制文件名
       - name: Build
-        working-directory: ../
-        run: GOOS=linux GOARCH=amd64 go build -o my-blog-server .
+        run: GOOS=linux GOARCH=amd64 go build -o my-blog-server ./cmd/main.go
 
       # 步骤 5: 部署到服务器
       - name: Deploy to Server
