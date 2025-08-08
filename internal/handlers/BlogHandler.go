@@ -12,13 +12,13 @@ import (
 // Handler 解析请求并调用相应的处理函数
 func Handler(w http.ResponseWriter, r *http.Request) {
 	switch {
-	case r.URL.Path == "/pages/Blog":
+	case r.URL.Path == "/api/Blog":
 		log.Printf("\033[32m[Log]\033[0mBlogHandler")
 		blogHandler(w, r)
-	case r.URL.Path == "/pages/LatestBlog":
+	case r.URL.Path == "/api/LatestBlog":
 		log.Printf("\033[32m[Log]\033[0mLatestBlogHandler")
 		LatestBlogHandler(w, r)
-	case len(r.URL.Path) >= len("/pages/BlogDetail") && r.URL.Path[:len("/pages/BlogDetail")] == "/pages/BlogDetail":
+	case len(r.URL.Path) >= len("/api/BlogDetail") && r.URL.Path[:len("/api/BlogDetail")] == "/api/BlogDetail":
 		log.Printf("\033[32m[Log]\033[0mBlogContentHandler")
 		BlogContentHandler(w, r)
 	default:
