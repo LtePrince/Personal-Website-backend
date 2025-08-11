@@ -9,7 +9,11 @@ BUILD_DIR := ./build
 
 # 运行目标程序
 run:
-	@go run $(MAIN_FILE)
+	@set -a; \
+	[ -f .env.development.local ] && . ./.env.development.local || true; \
+	[ -f .env ] && . ./.env || true; \
+	set +a; \
+	go run $(MAIN_FILE)
 
 # 运行客户端模拟程序
 test:
