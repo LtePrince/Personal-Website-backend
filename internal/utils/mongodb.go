@@ -20,13 +20,32 @@ var (
 	timer      *time.Timer
 )
 
-const (
-	// mongoURI = "mongodb://root:%40zy031003@localhost:27017" // 替换为你的 MongoDB URI
-	mongoURI       = "mongodb://localhost:27017" // 替换为你的 MongoDB URI
-	databaseName   = "WebsiteBlog"               // 替换为你的数据库名
-	collectionName = "blogs"                     // 替换为你的集合名
-	idleTimeout    = 1 * time.Hour
+var (
+	// 从环境变量读取 Mongo 配置，提供合理默认值
+	mongoURI       = getenv("MONGO_URI", "mongodb://localhost:27017")
+	databaseName   = getenv("MONGO_DB", "WebsiteBlog")
+	collectionName = getenv("MONGO_COLLECTION", "blogs")
+	idleTimeout    = envDuration("MONGO_IDLE_TIMEOUT", "1h")
 )
+
+func getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+func envDuration(key, def string) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		v = def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		d, _ = time.ParseDuration(def)
+	}
+	return d
+}
 
 // ConnectMongoDB 连接 MongoDB 并将客户端保存为全局变量
 func ConnectMongoDB() error {

@@ -1,1 +1,26 @@
+# Build outputs
 /build/
+
+# Local env files
+.env*
+!.env.example
+
+# Go build cache and binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
