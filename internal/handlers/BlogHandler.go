@@ -28,7 +28,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("\033[32m[Log]\033[0mBlogContentHandler")
 		BlogContentHandler(w, r)
 	default:
-		log.Printf("\033[31m[Log]\033[0mNot Found")
+		log.Printf("\033[31m[Log]\033[0mNot Found: %s", r.URL.Path)
 		http.NotFound(w, r)
 	}
 }
