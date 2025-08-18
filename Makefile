@@ -17,7 +17,10 @@ run:
 
 # 运行客户端模拟程序
 test:
-	@go run $(CLIENT_MONITOR_FILE)
+	@go test ./...
+
+unit:
+	@go test ./... -short
 
 build:
 	@go build -o $(BUILD_DIR)/my-blog-server $(MAIN_FILE)

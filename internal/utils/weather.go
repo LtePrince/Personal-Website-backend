@@ -73,7 +73,15 @@ func LookupIPLocation(ip string) (*IPInfo, error) {
 	return &info, nil
 }
 
-// WeatherAQI 描述天气与空气质量
+// WeatherAQI 描述天气与空气质量（部分字段可为空）。
+// 数值字段保持与外部 API 一致的单位：
+//
+//	TempC: 摄氏度
+//	WindSpeedKmh: 公里/小时
+//	Humidity: 相对湿度百分比
+//	AQIUS: 美国 AQI 指标
+//
+// WeatherText: 经过 WeatherCodeToText 映射后的中文描述
 type WeatherAQI struct {
 	TempC        *float64
 	WindSpeedKmh *float64
@@ -82,11 +90,44 @@ type WeatherAQI struct {
 	WeatherText  string
 }
 
+// WeatherCodeToText 将 Open‑Meteo weather_code 映射为中文描述。
+// 参考 https://open-meteo.com/en/docs 里的 weather code 列表，按语义合并常见类别。
+// 未知或缺省返回 "天气" 占位，保持与此前逻辑兼容。
+func WeatherCodeToText(code int) string {
+	switch code { // 分组归类
+	case 0:
+		return "晴"
+	case 1, 2, 3:
+		return "多云"
+	case 45, 48:
+		return "雾"
+	// 毛毛雨 / 雨
+	case 51, 53, 55, 56, 57, 61, 63, 65, 80, 81, 82:
+		return "雨"
+	// 雪 & 冻降水
+	case 71, 73, 75, 77, 85, 86:
+		return "雪"
+	// 雷暴
+	case 95, 96, 99:
+		return "雷阵雨"
+	default:
+		return "天气"
+	}
+}
+
 // FetchWeatherAndAQI 使用 Open-Meteo 获取当前天气与 US AQI
 func FetchWeatherAndAQI(lat, lon float64) (*WeatherAQI, error) {
 	client := &http.Client{Timeout: 5 * time.Second}
-	wURL := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=auto", lat, lon)
-	aqiURL := fmt.Sprintf("https://air-quality-api.open-meteo.com/v1/air-quality?latitude=%f&longitude=%f&current=us_aqi", lat, lon)
+
+	// 构造请求 URL：仅拉取当前需要用到的字段，减小响应体
+	wURL := fmt.Sprintf(
+		"https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=auto",
+		lat, lon,
+	)
+	aqiURL := fmt.Sprintf(
+		"https://air-quality-api.open-meteo.com/v1/air-quality?latitude=%f&longitude=%f&current=us_aqi",
+		lat, lon,
+	)
 
 	type wResp struct {
 		Current struct {
@@ -102,56 +143,29 @@ func FetchWeatherAndAQI(lat, lon float64) (*WeatherAQI, error) {
 		} `json:"current"`
 	}
 
-	// 并行请求（简化为顺序 + 独立错误容忍）
-	var wData wResp
-	var aData aqiResp
+	var (
+		wData wResp
+		aData aqiResp
+	)
 
-	// 天气
-	if resp, err := client.Get(wURL); err == nil {
-		defer func() {
-			if resp != nil {
-				resp.Body.Close()
-			}
-		}()
-		if resp.StatusCode == 200 {
-			if b, err := io.ReadAll(resp.Body); err == nil {
-				_ = json.Unmarshal(b, &wData)
-			}
-		}
-	}
-	// AQI
-	if resp, err := client.Get(aqiURL); err == nil {
-		defer func() {
-			if resp != nil {
-				resp.Body.Close()
-			}
-		}()
-		if resp.StatusCode == 200 {
-			if b, err := io.ReadAll(resp.Body); err == nil {
-				_ = json.Unmarshal(b, &aData)
+	// helper：执行 GET 并在 200 时解 JSON，不抛错（容忍失败）
+	fetchJSON := func(url string, v any) {
+		if resp, err := client.Get(url); err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				if b, err := io.ReadAll(resp.Body); err == nil {
+					_ = json.Unmarshal(b, v)
+				}
 			}
 		}
 	}
 
-	// 文本映射（简化）
+	fetchJSON(wURL, &wData)
+	fetchJSON(aqiURL, &aData)
+
 	weatherText := "天气"
-	if code := wData.Current.WeatherCode; code != nil {
-		switch *code {
-		case 0:
-			weatherText = "晴"
-		case 1, 2, 3:
-			weatherText = "多云"
-		case 45, 48:
-			weatherText = "雾"
-		case 61, 63, 65, 80, 81, 82:
-			weatherText = "雨"
-		case 71, 73, 75, 85, 86:
-			weatherText = "雪"
-		case 95, 96, 99:
-			weatherText = "雷阵雨"
-		default:
-			weatherText = "天气"
-		}
+	if wData.Current.WeatherCode != nil {
+		weatherText = WeatherCodeToText(*wData.Current.WeatherCode)
 	}
 
 	return &WeatherAQI{
