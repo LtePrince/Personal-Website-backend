@@ -12,6 +12,86 @@ import (
 	"github.com/LtePrince/Personal-Website-backend/internal/utils"
 )
 
+// ---- 通用辅助 ----
+// getClientIP 提取客户端真实 IP（支持常见代理头），失败时回退 RemoteAddr
+func getClientIP(r *http.Request) string {
+	// 优先 Cloudflare
+	if ip := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); ip != "" {
+		return ip
+	}
+	// 再看 X-Forwarded-For 第一段
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		if len(parts) > 0 {
+			p := strings.TrimSpace(parts[0])
+			if p != "" {
+				return p
+			}
+		}
+	}
+	// 直接 RemoteAddr
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
+// beaufortLevel 近似计算蒲福风级
+func beaufortLevel(kmh int) int {
+	switch {
+	case kmh < 1:
+		return 0
+	case kmh <= 5:
+		return 1
+	case kmh <= 11:
+		return 2
+	case kmh <= 19:
+		return 3
+	case kmh <= 28:
+		return 4
+	case kmh <= 38:
+		return 5
+	case kmh <= 49:
+		return 6
+	case kmh <= 61:
+		return 7
+	case kmh <= 74:
+		return 8
+	case kmh <= 88:
+		return 9
+	case kmh <= 102:
+		return 10
+	case kmh <= 117:
+		return 11
+	default:
+		return 12
+	}
+}
+
+// buildLocation 拼接展示字符串（city · region · countryCode）
+func buildLocation(city, region, countryCode string) string {
+	var segs []string
+	if city != "" {
+		segs = append(segs, city)
+	}
+	if region != "" {
+		segs = append(segs, region)
+	}
+	if countryCode != "" {
+		segs = append(segs, countryCode)
+	}
+	return strings.Join(segs, " · ")
+}
+
+// writeJSONHeaders 统一写基础 JSON 响应头
+func writeJSONHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+}
+
 // Handler 解析请求并调用相应的处理函数
 func Handler(w http.ResponseWriter, r *http.Request) {
 	switch {
@@ -161,88 +241,12 @@ func BlogContentHandler(w http.ResponseWriter, r *http.Request) {
 
 // WeatherHandler 根据客户端 IP 返回所在城市天气与空气质量
 func WeatherHandler(w http.ResponseWriter, r *http.Request) {
-	// 基本日志
-	method := r.Method
-	path := r.URL.Path
-	userAgent := r.Header.Get("User-Agent")
-	log.Printf("\033[32m[Log]\033[0m------Method: %s\n", method)
-	log.Printf("\033[32m[Log]\033[0m------Path: %s\n", path)
-	log.Printf("\033[32m[Log]\033[0m------User-Agent: %s\n", userAgent)
+	// 日志
+	log.Printf("\033[32m[Log]\033[0m------Method: %s\n", r.Method)
+	log.Printf("\033[32m[Log]\033[0m------Path: %s\n", r.URL.Path)
+	log.Printf("\033[32m[Log]\033[0m------User-Agent: %s\n", r.Header.Get("User-Agent"))
 
-	// 提取客户端 IP（支持代理）
-	ip := r.Header.Get("CF-Connecting-IP")
-	if ip == "" {
-		ip = r.Header.Get("X-Forwarded-For")
-		if ip != "" {
-			// 取第一个 IP
-			if comma := strings.Index(ip, ","); comma > 0 {
-				ip = strings.TrimSpace(ip[:comma])
-			}
-		}
-	}
-	if ip == "" {
-		// RemoteAddr 可能包含端口
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err == nil {
-			ip = host
-		} else {
-			ip = r.RemoteAddr
-		}
-	}
-
-	// 允许本地开发时通过查询参数覆盖经纬度
-	q := r.URL.Query()
-	latParam := q.Get("lat")
-	lonParam := q.Get("lon")
-
-	// 默认经纬度：悉尼
-	lat := -33.8688
-	lon := 151.2093
-	city := "Sydney"
-	region := "NSW"
-	countryCode := "AU"
-
-	// 如果提供了经纬度参数，优先使用
-	if latParam != "" && lonParam != "" {
-		if v, err := strconv.ParseFloat(latParam, 64); err == nil {
-			lat = v
-		}
-		if v, err := strconv.ParseFloat(lonParam, 64); err == nil {
-			lon = v
-		}
-	} else {
-		// 否则尝试 IP 定位
-		if !utils.IsPrivateOrLoopbackIP(ip) {
-			if info, err := utils.LookupIPLocation(ip); err == nil {
-				if info.Latitude != 0 || info.Longitude != 0 {
-					lat = info.Latitude
-					lon = info.Longitude
-				}
-				if info.City != "" {
-					city = info.City
-				}
-				if info.Region != "" {
-					region = info.Region
-				}
-				if info.CountryCode != "" {
-					countryCode = info.CountryCode
-				}
-			}
-		}
-	}
-
-	// 拉取天气与空气质量
-	weather, err := utils.FetchWeatherAndAQI(lat, lon)
-	if err != nil {
-		log.Printf("Error FetchWeatherAndAQI: %v", err)
-		// 不中断，返回占位
-	}
-
-	// 输出 JSON
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json")
+	writeJSONHeaders(w)
 
 	type resp struct {
 		City         string `json:"city"`
@@ -258,81 +262,68 @@ func WeatherHandler(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt    string `json:"updatedAt"`
 	}
 
-	var tPtr, wPtr, wLvlPtr, hPtr, aqiPtr *int
-	if weather.TempC != nil {
-		t := int(*weather.TempC)
-		tPtr = &t
-	}
-	if weather.WindSpeedKmh != nil {
-		wv := int(*weather.WindSpeedKmh)
-		wPtr = &wv
-	}
-	if weather.Humidity != nil {
-		hv := int(*weather.Humidity)
-		hPtr = &hv
-	}
-	if weather.AQIUS != nil {
-		av := int(*weather.AQIUS)
-		aqiPtr = &av
+	ip := getClientIP(r)
+	if utils.IsPrivateOrLoopbackIP(ip) {
+		json.NewEncoder(w).Encode(resp{
+			City:        "localhost",
+			Location:    "localhost",
+			WeatherText: "N/A",
+			UpdatedAt:   time.Now().UTC().Format(time.RFC3339),
+		})
+		return
 	}
 
-	// 计算风级（蒲福风级近似）
-	if wPtr != nil {
-		v := *wPtr
-		lvl := 0
-		switch {
-		case v < 1:
-			lvl = 0
-		case v <= 5:
-			lvl = 1
-		case v <= 11:
-			lvl = 2
-		case v <= 19:
-			lvl = 3
-		case v <= 28:
-			lvl = 4
-		case v <= 38:
-			lvl = 5
-		case v <= 49:
-			lvl = 6
-		case v <= 61:
-			lvl = 7
-		case v <= 74:
-			lvl = 8
-		case v <= 88:
-			lvl = 9
-		case v <= 102:
-			lvl = 10
-		case v <= 117:
-			lvl = 11
-		default:
-			lvl = 12
+	// 公网 IP 定位
+	var city, region, countryCode string
+	var lat, lon float64
+	var haveCoord bool
+	if info, err := utils.LookupIPLocation(ip); err == nil && info != nil {
+		city, region, countryCode = info.City, info.Region, info.CountryCode
+		if info.Latitude != 0 || info.Longitude != 0 {
+			lat, lon, haveCoord = info.Latitude, info.Longitude, true
 		}
-		wLvlPtr = &lvl
 	}
 
-	payload := resp{
-		City:        city,
-		Region:      region,
-		CountryCode: countryCode,
-		Location: city + func() string {
-			if region != "" {
-				return " · " + region
+	// 请求天气
+	var (
+		weatherText                                  = "天气"
+		tempPtr, windPtr, windLvlPtr, humPtr, aqiPtr *int
+	)
+	if haveCoord {
+		if wdata, err := utils.FetchWeatherAndAQI(lat, lon); err == nil && wdata != nil {
+			if wdata.TempC != nil {
+				v := int(*wdata.TempC)
+				tempPtr = &v
 			}
-			return ""
-		}() + func() string {
-			if countryCode != "" {
-				return " · " + countryCode
+			if wdata.WindSpeedKmh != nil {
+				v := int(*wdata.WindSpeedKmh)
+				windPtr = &v
+				lvl := beaufortLevel(v)
+				windLvlPtr = &lvl
 			}
-			return ""
-		}(),
-		TemperatureC: tPtr,
-		WindSpeedKmh: wPtr,
-		WindLevel:    wLvlPtr,
-		Humidity:     hPtr,
-		AQIUS:        aqiPtr,
-		WeatherText:  weather.WeatherText,
-		UpdatedAt:    time.Now().UTC().Format(time.RFC3339),
+			if wdata.Humidity != nil {
+				v := int(*wdata.Humidity)
+				humPtr = &v
+			}
+			if wdata.AQIUS != nil {
+				v := int(*wdata.AQIUS)
+				aqiPtr = &v
+			}
+			weatherText = wdata.WeatherText
+		}
 	}
-	json.NewEncoder(w).Encode(payload)
+
+	json.NewEncoder(w).Encode(resp{
+		City:         city,
+		Region:       region,
+		CountryCode:  countryCode,
+		Location:     buildLocation(city, region, countryCode),
+		TemperatureC: tempPtr,
+		WindSpeedKmh: windPtr,
+		WindLevel:    windLvlPtr,
+		Humidity:     humPtr,
+		AQIUS:        aqiPtr,
+		WeatherText:  weatherText,
+		UpdatedAt:    time.Now().UTC().Format(time.RFC3339),
+	})
 }

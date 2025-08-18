@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// 注意：这些测试命中线上地址，适合冒烟，不保证稳定性。
-// 若需稳定，应在本地启动服务器并指向 localhost。
 const baseURL = "http://localhost:8080"
 
 func get(t *testing.T, path string) []byte {
